@@ -71,6 +71,13 @@ public class MainActivity extends Activity {
 		}
 
 	}
+	
+	@Override
+	protected void onDestroy() {
+		super.onDestroy();
+		bluetoothtask.cancel(true);
+		uploadTask.cancel(true);
+	}
 
 	public void onButtonClick(View view) {
 		Log.d("Button", "Button Clicked");
@@ -178,19 +185,19 @@ public class MainActivity extends Activity {
 				writer = new PrintWriter(file);
 				byte[] buffer = new byte[4];
 				Long relativeTimeStamp;
-				while (running) {
+				while (running&&(!isCancelled())) {
 					blueInputStream.read(buffer);
-					pulse = unsignedByteToInt(buffer[1]);
-					byte b1 = buffer[0];
-					if (isBitSet(b1, 0)) {
-						pulse += 128;
-					}
 					if (startTime == 0) {
 						startTime = System.currentTimeMillis();
 						relativeTimeStamp = (long) 0;
 					} else {
 						relativeTimeStamp = System.currentTimeMillis()
 								- startTime;
+					}
+					pulse = unsignedByteToInt(buffer[1]);
+					byte b1 = buffer[0];
+					if (isBitSet(b1, 0)) {
+						pulse += 128;
 					}
 					writer.println(pulse + " | " + relativeTimeStamp + "\r\n");
 					publishProgress();
@@ -250,7 +257,7 @@ public class MainActivity extends Activity {
 				int bytesRead;
 				os = socket.getOutputStream();
 
-				while ((bytesRead = fis.read(buffer)) != -1) {
+				while (((bytesRead = fis.read(buffer)) != -1)&&(!isCancelled())) {
 					os.write(buffer);
 				}
 
