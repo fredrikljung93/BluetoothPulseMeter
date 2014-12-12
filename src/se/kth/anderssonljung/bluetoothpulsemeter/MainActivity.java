@@ -21,9 +21,11 @@ import java.util.Set;
 import java.util.UUID;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -45,6 +47,7 @@ public class MainActivity extends Activity {
 	public TextView textview;
 	private Button button;
 	private BluetoothDevice device;
+	private boolean bluetoothsuccess = false;
 	UploadTask uploadTask;
 	BluetoothThread bThread;
 
@@ -63,33 +66,75 @@ public class MainActivity extends Activity {
 		setContentView(R.layout.activity_main);
 		Log.d("onCreate", "Application started");
 
-		bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-		if (bluetoothAdapter == null) {
-			Log.d("onCreate", "Adapter==null");
-		}
+		bluetoothsuccess = setupBlueTooth();
 		button = (Button) findViewById(R.id.button1);
 		textview = (TextView) findViewById(R.id.textView1);
 
 		button.setText("Start");
 		textview.setText("-");
+	}
+
+	private boolean setupBlueTooth() {
+		bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+		if (bluetoothAdapter == null) {
+
+			AlertDialog.Builder builder = new AlertDialog.Builder(this);
+			builder.setMessage("Bluetooth not enabled")
+					.setCancelable(false)
+					.setPositiveButton("OK",
+							new DialogInterface.OnClickListener() {
+								public void onClick(DialogInterface dialog,
+										int id) {
+								}
+							});
+			AlertDialog alert = builder.create();
+			alert.show();
+			return false;
+		}
 
 		Set<BluetoothDevice> devices = bluetoothAdapter.getBondedDevices();
 
+		if (devices.isEmpty()) {
+			AlertDialog.Builder builder = new AlertDialog.Builder(this);
+			builder.setMessage("No paired devices available")
+					.setCancelable(false)
+					.setPositiveButton("OK",
+							new DialogInterface.OnClickListener() {
+								public void onClick(DialogInterface dialog,
+										int id) {
+								}
+							});
+			AlertDialog alert = builder.create();
+			alert.show();
+			return false;
+		}
 		for (BluetoothDevice device : devices) {
 			this.device = device;
 			break;
 		}
+		return true;
+
 	}
 
 	@Override
 	protected void onDestroy() {
 		super.onDestroy();
-		uploadTask.cancel(true);
-		bThread.setCancelled(true);
+		if (uploadTask != null) {
+			uploadTask.cancel(true);
+		}
+		if (bThread != null) {
+			bThread.setCancelled(true);
+		}
 	}
 
 	public void onButtonClick(View view) {
 		Log.d("Button", "Button Clicked");
+
+		if (!bluetoothsuccess) {
+			showToast("Bluetooth is not setup");
+			return;
+		}
+
 		if (button.getText().toString().equalsIgnoreCase("START")) {
 			button.setText("Stop");
 			Log.d("Button", "Button said start -> Now starting");
