@@ -27,6 +27,8 @@ import android.bluetooth.BluetoothSocket;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.os.ParcelUuid;
 import android.util.Log;
 import android.view.Menu;
@@ -37,8 +39,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 public class MainActivity extends Activity {
-	private static final byte[] FORMAT_8 = { 0x02, 0x70, 0x04, 0x02, 0x08,
-			0x00, (byte) 0x7E, 0x03 };
 	private static final UUID uuid = UUID
 			.fromString("00001101-0000-1000-8000-00805f9b34fb");
 	private BluetoothAdapter bluetoothAdapter;
@@ -46,7 +46,16 @@ public class MainActivity extends Activity {
 	private Button button;
 	private BluetoothDevice device;
 	UploadTask uploadTask;
-	ReadBlueTooth bluetoothtask;
+	BluetoothThread bThread;
+
+	Handler handler = new Handler() {
+		@Override
+		public void handleMessage(Message msg) {
+			Bundle b = msg.getData();
+			String pulse = b.getString("pulse");
+			textview.setText(pulse);
+		}
+	};
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -70,13 +79,11 @@ public class MainActivity extends Activity {
 			this.device = device;
 			break;
 		}
-
 	}
-	
+
 	@Override
 	protected void onDestroy() {
 		super.onDestroy();
-		bluetoothtask.cancel(true);
 		uploadTask.cancel(true);
 	}
 
@@ -89,34 +96,21 @@ public class MainActivity extends Activity {
 			try {
 				BluetoothSocket socket = device
 						.createInsecureRfcommSocketToServiceRecord(uuid);
-				bluetoothtask = new ReadBlueTooth(socket, textview,
-						getFilesDir());
-				bluetoothtask.execute();
+				bThread = new BluetoothThread(socket, textview,
+						getExternalFilesDir(null), handler);
+				new Thread(bThread).start();
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		} else {
-			bluetoothtask.setRunning(false);
+			File mostRecentFile = bThread.getFileU();
+			bThread.setRunning(false);
 			button.setText("Start");
+			UploadTask task = new UploadTask(mostRecentFile);
+			task.execute();
 			Log.d("Button", "Button did not say start -> Now stopping");
 		}
-	}
-
-	/**
-	 * Given method that may come in handy?
-	 * 
-	 * @param b
-	 * @return
-	 */
-	private static int unsignedByteToInt(byte b) {
-		return (int) b & 0xFF;
-	}
-
-	// Stolen from
-	// stackoverflow.com/questions/2431732/checking-if-a-bit-is-set-or-not
-	private static boolean isBitSet(byte b, int pos) {
-		return (b & (1 << pos)) != 0;
 	}
 
 	@Override
@@ -136,107 +130,6 @@ public class MainActivity extends Activity {
 			return true;
 		}
 		return super.onOptionsItemSelected(item);
-	}
-
-	private class ReadBlueTooth extends AsyncTask<Void, Void, Void> {
-		BluetoothSocket socket;
-		File file;
-		TextView textview;
-		InputStream blueInputStream;
-		OutputStream blueOutputStream;
-		PrintWriter writer;
-		int pulse = 0;
-		private boolean running;
-
-		public ReadBlueTooth(BluetoothSocket socket, TextView view,
-				File filesdir) {
-			running = false;
-			this.socket = socket;
-			this.textview = view;
-			// pulse-2014-12-11-11-59-00000
-			Date date = new Date(System.currentTimeMillis());
-			Random random = new Random();
-			file = new File(getExternalFilesDir(null), "pulse-" + date.getYear()
-					+ date.getMonth() + date.getDate() + "-"
-					+ random.nextFloat());
-		}
-
-		public void setRunning(boolean running) {
-			this.running = running;
-		}
-
-		@Override
-		protected Void doInBackground(Void... params) {
-			running = true;
-			Log.d("ReadBluetooth", "Background thread started");
-			try {
-				Long startTime = (long) 0;
-				socket.connect();
-				Log.d("ReadBluetooth", "Connect success");
-				blueInputStream = socket.getInputStream();
-				blueOutputStream = socket.getOutputStream();
-
-				blueOutputStream.write(FORMAT_8);
-				blueOutputStream.flush();
-				int response = blueInputStream.read();
-				Log.d("ReadBluetooth", "Response: " + response);
-				if (response != 6) {
-					return null; // Did not receive ACK
-				}
-				writer = new PrintWriter(file);
-				byte[] buffer = new byte[4];
-				Long relativeTimeStamp;
-				while (running&&(!isCancelled())) {
-					blueInputStream.read(buffer);
-					if (startTime == 0) {
-						startTime = System.currentTimeMillis();
-						relativeTimeStamp = (long) 0;
-					} else {
-						relativeTimeStamp = System.currentTimeMillis()
-								- startTime;
-					}
-					pulse = unsignedByteToInt(buffer[1]);
-					byte b1 = buffer[0];
-					if (isBitSet(b1, 0)) {
-						pulse += 128;
-					}
-					writer.println(pulse + " | " + relativeTimeStamp + "\r\n");
-					publishProgress();
-				}
-
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-				Log.d("ReadBluetooth", "Connect failed");
-			} finally {
-				try {
-					if (writer != null) {
-						writer.close();
-					}
-					if (socket != null) {
-						socket.close();
-					}
-				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-			}
-			return null;
-		}
-
-		@Override
-		protected void onProgressUpdate(Void... params) {
-			super.onProgressUpdate();
-			textview.setText("" + pulse);
-		}
-
-		@Override
-		protected void onPostExecute(Void result) {
-			showToast("Bluetooth task completed");
-			uploadTask = new UploadTask(file);
-			uploadTask.execute();
-		}
-
 	}
 
 	private class UploadTask extends AsyncTask<Void, Void, Void> {
@@ -262,15 +155,16 @@ public class MainActivity extends Activity {
 				int bytesRead;
 				os = socket.getOutputStream();
 				Log.d("UploadTask", "outputstream opened");
-				int loopcounter=0;
+				int loopcounter = 0;
 				while ((bytesRead = fis.read(buffer)) != -1) {
 					loopcounter++;
-					if(isCancelled()){
+					if (isCancelled()) {
 						break;
 					}
 					os.write(buffer);
 				}
-				Log.d("UploadTask", "Finished reading after # of loops: "+loopcounter);
+				Log.d("UploadTask", "Finished reading after # of loops: "
+						+ loopcounter);
 
 			} catch (FileNotFoundException e) {
 				// TODO Auto-generated catch block
@@ -297,7 +191,7 @@ public class MainActivity extends Activity {
 							e.printStackTrace();
 						}
 					}
-					if(socket!=null){
+					if (socket != null) {
 						try {
 							socket.close();
 						} catch (IOException e) {
@@ -318,12 +212,13 @@ public class MainActivity extends Activity {
 			showToast("Upload completed");
 			Log.d("UploadTask", "Reached onPostExecute");
 		}
-		
+
 	}
-	
-	private void showToast(String message){
-		Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT).show();
-		 
+
+	private void showToast(String message) {
+		Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT)
+				.show();
+
 	}
 
 }
