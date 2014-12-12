@@ -105,6 +105,12 @@ public class MainActivity extends Activity {
 		return (int) b & 0xFF;
 	}
 
+	// Stolen from
+	// stackoverflow.com/questions/2431732/checking-if-a-bit-is-set-or-not
+	private static boolean isBitSet(byte b, int pos) {
+		return (b & (1 << pos)) != 0;
+	}
+
 	@Override
 	public boolean onCreateOptionsMenu(Menu menu) {
 		// Inflate the menu; this adds items to the action bar if it is present.
@@ -136,7 +142,7 @@ public class MainActivity extends Activity {
 
 		public ReadBlueTooth(BluetoothSocket socket, TextView view,
 				File filesdir) {
-			running=false;
+			running = false;
 			this.socket = socket;
 			this.textview = view;
 			// pulse-2014-12-11-11-59-00000
@@ -146,16 +152,17 @@ public class MainActivity extends Activity {
 					+ date.getMonth() + date.getDate() + "-"
 					+ random.nextFloat());
 		}
-		
-		public void setRunning(boolean running){
-			this.running=running;
+
+		public void setRunning(boolean running) {
+			this.running = running;
 		}
 
 		@Override
 		protected Void doInBackground(Void... params) {
-			running=true;
+			running = true;
 			Log.d("ReadBluetooth", "Background thread started");
 			try {
+				Long startTime = (long) 0;
 				socket.connect();
 				Log.d("ReadBluetooth", "Connect success");
 				blueInputStream = socket.getInputStream();
@@ -170,11 +177,22 @@ public class MainActivity extends Activity {
 				}
 				writer = new PrintWriter(file);
 				byte[] buffer = new byte[4];
-
+				Long relativeTimeStamp;
 				while (running) {
 					blueInputStream.read(buffer);
 					pulse = unsignedByteToInt(buffer[1]);
-					writer.println(pulse);
+					byte b1 = buffer[0];
+					if (isBitSet(b1, 0)) {
+						pulse += 128;
+					}
+					if (startTime == 0) {
+						startTime = System.currentTimeMillis();
+						relativeTimeStamp = (long) 0;
+					} else {
+						relativeTimeStamp = System.currentTimeMillis()
+								- startTime;
+					}
+					writer.println(pulse + " | " + relativeTimeStamp + "\r\n");
 					publishProgress();
 				}
 
@@ -222,11 +240,11 @@ public class MainActivity extends Activity {
 		@Override
 		protected Void doInBackground(Void... params) {
 			FileInputStream fis = null;
-			OutputStream os=null;
+			OutputStream os = null;
 			Log.d("UploadTask", "Reached doInBackground");
 			try {
 				fis = new FileInputStream(file);
-				Socket socket = new Socket("193.10.37.94", 1337);
+				Socket socket = new Socket("193.10.37.92", 1337);
 				byte[] buffer = new byte[1024];
 
 				int bytesRead;
@@ -253,7 +271,7 @@ public class MainActivity extends Activity {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
-					if(os!=null){
+					if (os != null) {
 						try {
 							os.close();
 						} catch (IOException e) {
@@ -261,7 +279,7 @@ public class MainActivity extends Activity {
 							e.printStackTrace();
 						}
 					}
-				
+
 				}
 			}
 
@@ -275,4 +293,5 @@ public class MainActivity extends Activity {
 		}
 
 	}
+
 }
