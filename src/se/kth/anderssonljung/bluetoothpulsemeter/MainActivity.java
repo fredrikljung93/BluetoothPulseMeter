@@ -34,6 +34,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.Toast;
 
 public class MainActivity extends Activity {
 	private static final byte[] FORMAT_8 = { 0x02, 0x70, 0x04, 0x02, 0x08,
@@ -155,7 +156,7 @@ public class MainActivity extends Activity {
 			// pulse-2014-12-11-11-59-00000
 			Date date = new Date(System.currentTimeMillis());
 			Random random = new Random();
-			file = new File(filesdir, "pulse-" + date.getYear()
+			file = new File(getExternalFilesDir(null), "pulse-" + date.getYear()
 					+ date.getMonth() + date.getDate() + "-"
 					+ random.nextFloat());
 		}
@@ -231,6 +232,7 @@ public class MainActivity extends Activity {
 
 		@Override
 		protected void onPostExecute(Void result) {
+			showToast("Bluetooth task completed");
 			uploadTask = new UploadTask(file);
 			uploadTask.execute();
 		}
@@ -248,18 +250,27 @@ public class MainActivity extends Activity {
 		protected Void doInBackground(Void... params) {
 			FileInputStream fis = null;
 			OutputStream os = null;
+			Socket socket = null;
 			Log.d("UploadTask", "Reached doInBackground");
 			try {
 				fis = new FileInputStream(file);
-				Socket socket = new Socket("193.10.37.92", 1337);
+				Log.d("UploadTask", "FileInputstream opened");
+				socket = new Socket("193.10.37.92", 1337);
+				Log.d("UploadTask", "Socket defined");
 				byte[] buffer = new byte[1024];
 
 				int bytesRead;
 				os = socket.getOutputStream();
-
-				while (((bytesRead = fis.read(buffer)) != -1)&&(!isCancelled())) {
+				Log.d("UploadTask", "outputstream opened");
+				int loopcounter=0;
+				while ((bytesRead = fis.read(buffer)) != -1) {
+					loopcounter++;
+					if(isCancelled()){
+						break;
+					}
 					os.write(buffer);
 				}
+				Log.d("UploadTask", "Finished reading after # of loops: "+loopcounter);
 
 			} catch (FileNotFoundException e) {
 				// TODO Auto-generated catch block
@@ -286,19 +297,33 @@ public class MainActivity extends Activity {
 							e.printStackTrace();
 						}
 					}
+					if(socket!=null){
+						try {
+							socket.close();
+						} catch (IOException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+					}
 
 				}
 			}
 
-			Log.d("UploadTask", "Reached doInBackground");
+			Log.d("UploadTask", "Finished do in background");
 			return null;
 		}
 
 		@Override
 		protected void onPostExecute(Void result) {
+			showToast("Upload completed");
 			Log.d("UploadTask", "Reached onPostExecute");
 		}
-
+		
+	}
+	
+	private void showToast(String message){
+		Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT).show();
+		 
 	}
 
 }
