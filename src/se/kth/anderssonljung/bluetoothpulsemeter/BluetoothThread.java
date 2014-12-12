@@ -5,6 +5,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Random;
 
@@ -35,11 +37,12 @@ public class BluetoothThread implements Runnable {
 		this.handler=handler;
 		this.socket = socket;
 		this.textview = view;
-		// pulse-2014-12-11-11-59-00000
-		Date date = new Date(System.currentTimeMillis());
 		Random random = new Random();
-		file = new File(filesdir, "pulse-" + date.getYear()
-				+ date.getMonth() + date.getDate() + "-"
+		DateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
+		Date date = new Date();
+		System.out.println(dateFormat.format(date));
+		
+		file = new File(filesdir, "pulse-"+dateFormat.format(date) + "-"
 				+ random.nextFloat());
 	}
 	
@@ -136,7 +139,7 @@ public class BluetoothThread implements Runnable {
 		return (b & (1 << pos)) != 0;
 	}
 	
-	public File getFileU(){
+	public File getFile(){
 		return file;
 	}
 

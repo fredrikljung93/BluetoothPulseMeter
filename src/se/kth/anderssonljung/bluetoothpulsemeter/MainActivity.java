@@ -85,6 +85,7 @@ public class MainActivity extends Activity {
 	protected void onDestroy() {
 		super.onDestroy();
 		uploadTask.cancel(true);
+		bThread.setCancelled(true);
 	}
 
 	public void onButtonClick(View view) {
@@ -104,7 +105,7 @@ public class MainActivity extends Activity {
 				e.printStackTrace();
 			}
 		} else {
-			File mostRecentFile = bThread.getFileU();
+			File mostRecentFile = bThread.getFile();
 			bThread.setRunning(false);
 			button.setText("Start");
 			UploadTask task = new UploadTask(mostRecentFile);
