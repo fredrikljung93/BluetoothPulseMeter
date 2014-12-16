@@ -1,22 +1,12 @@
 package se.kth.anderssonljung.bluetoothpulsemeter;
 
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.util.Date;
-import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 
@@ -26,12 +16,10 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.DialogInterface;
-import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
-import android.os.ParcelUuid;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -40,6 +28,13 @@ import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
+/**
+ * Application that displays bluetooth pulse meter data, saves it to file and
+ * uploads it to server
+ * 
+ * @author Jonas Andersson, Fredrik Ljung
+ * 
+ */
 public class MainActivity extends Activity {
 	private static final UUID uuid = UUID
 			.fromString("00001101-0000-1000-8000-00805f9b34fb");
@@ -127,6 +122,11 @@ public class MainActivity extends Activity {
 		}
 	}
 
+	/**
+	 * Starts or stops bluetooth data gathering
+	 * 
+	 * @param view
+	 */
 	public void onButtonClick(View view) {
 		Log.d("Button", "Button Clicked");
 
@@ -178,6 +178,12 @@ public class MainActivity extends Activity {
 		return super.onOptionsItemSelected(item);
 	}
 
+	/**
+	 * Uploads file to server
+	 * 
+	 * @author Fredrik
+	 * 
+	 */
 	private class UploadTask extends AsyncTask<Void, Void, Void> {
 		File file;
 
@@ -261,6 +267,11 @@ public class MainActivity extends Activity {
 
 	}
 
+	/**
+	 * Shows a short toast message
+	 * 
+	 * @param message
+	 */
 	private void showToast(String message) {
 		Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT)
 				.show();

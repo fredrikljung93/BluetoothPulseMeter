@@ -17,9 +17,15 @@ import android.os.Message;
 import android.util.Log;
 import android.widget.TextView;
 
+/**
+ * Bluetooth thread which gathers pulse data and stores it to a file
+ * 
+ * @author Jonas Andersson, Fredrik Ljung
+ * 
+ */
 public class BluetoothThread implements Runnable {
 	private static final byte[] FORMAT_8 = { 0x02, 0x70, 0x04, 0x02, 0x08,
-		0x00, (byte) 0x7E, 0x03 };
+			0x00, (byte) 0x7E, 0x03 };
 	BluetoothSocket socket;
 	File file;
 	TextView textview;
@@ -34,22 +40,22 @@ public class BluetoothThread implements Runnable {
 	public BluetoothThread(BluetoothSocket socket, TextView view,
 			File filesdir, Handler handler) {
 		running = false;
-		this.handler=handler;
+		this.handler = handler;
 		this.socket = socket;
 		this.textview = view;
 		Random random = new Random();
 		DateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmss");
 		Date date = new Date();
 		System.out.println(dateFormat.format(date));
-		
-		file = new File(filesdir, "pulse-"+dateFormat.format(date) + "-"
+
+		file = new File(filesdir, "pulse-" + dateFormat.format(date) + "-"
 				+ random.nextFloat());
 	}
-	
-	public void setRunning(boolean running){
-		this.running=running;
+
+	public void setRunning(boolean running) {
+		this.running = running;
 	}
-	
+
 	@Override
 	public void run() {
 		running = true;
@@ -71,14 +77,13 @@ public class BluetoothThread implements Runnable {
 			writer = new PrintWriter(file);
 			byte[] buffer = new byte[4];
 			Long relativeTimeStamp;
-			while (running&&(!isCancelled())) {
+			while (running && (!isCancelled())) {
 				blueInputStream.read(buffer);
 				if (startTime == 0) {
 					startTime = System.currentTimeMillis();
 					relativeTimeStamp = (long) 0;
 				} else {
-					relativeTimeStamp = System.currentTimeMillis()
-							- startTime;
+					relativeTimeStamp = System.currentTimeMillis() - startTime;
 				}
 				pulse = unsignedByteToInt(buffer[1]);
 				byte b1 = buffer[0];
@@ -86,11 +91,11 @@ public class BluetoothThread implements Runnable {
 					pulse += 128;
 				}
 				writer.println(pulse + " | " + relativeTimeStamp + "\r\n");
-				//publishProgress();
+				// publishProgress();
 				Message msg = new Message();
-			      Bundle b = new Bundle();
-			      b.putString("pulse", pulse+"");
-			      msg.setData(b);
+				Bundle b = new Bundle();
+				b.putString("pulse", pulse + "");
+				msg.setData(b);
 				handler.sendMessage(msg);
 			}
 
@@ -111,35 +116,60 @@ public class BluetoothThread implements Runnable {
 				e.printStackTrace();
 			}
 		}
-		
+
 	}
-	
-	public void setCancelled(boolean cancelled){
-		this.cancelled=cancelled;
-	}
-	
-	public boolean isCancelled(){
-		return cancelled;
-	}
-	
 
 	/**
-	 * Given method that may come in handy?
+	 * Set whether the thread should be cancelled or not
+	 * 
+	 * @param cancelled
+	 */
+	public void setCancelled(boolean cancelled) {
+		this.cancelled = cancelled;
+	}
+
+	/**
+	 * Returns whether thread is cancelled or not
+	 * 
+	 * @return
+	 */
+	public boolean isCancelled() {
+		return cancelled;
+	}
+
+	/**
+	 * Converts unsigned byte to integer
 	 * 
 	 * @param b
 	 * @return
+	 */
+	/*
+	 * Method given by task instructions
 	 */
 	private static int unsignedByteToInt(byte b) {
 		return (int) b & 0xFF;
 	}
 
+	/**
+	 * Checks if bit is set or not
+	 * 
+	 * @param b
+	 * @param pos
+	 *            Position in the byte (0 least significant)
+	 * @return
+	 */
 	// Stolen from
 	// stackoverflow.com/questions/2431732/checking-if-a-bit-is-set-or-not
 	private static boolean isBitSet(byte b, int pos) {
 		return (b & (1 << pos)) != 0;
 	}
-	
-	public File getFile(){
+
+	/**
+	 * Returns output file
+	 * 
+	 * @return
+	 */
+	public File getFile() {
 		return file;
 	}
 
